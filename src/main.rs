@@ -4,7 +4,31 @@ use actix_cors::Cors;
 use serde::Deserialize;
 
 mod model;
+pub mod schema;
+pub mod models;
+
 use model::product::*;
+
+#[macro_use]
+extern crate diesel;
+extern crate dotenv;
+
+use diesel::prelude::*;
+use diesel::pg::PgConnection;
+use dotenv::dotenv;
+use std::env;
+
+use crate::models::NewProduct;
+
+pub fn establish_connection() -> PgConnection {
+    dotenv().ok();
+
+    let database_url = env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+
+    PgConnection::establish(&database_url)
+        .expect(&format!("Error connecting to {}", database_url))
+}
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -117,14 +141,30 @@ async fn echo(req_body: String) -> impl Responder {
     HttpResponse::Ok().body(req_body)
 }
 
+fn insertDummyData() {
+    use schema::products;
+    let connection = establish_connection();
+
+    let new_product = NewProduct {
+        title: "Shoes",
+        description_short: "very good looking shoes",
+        description_long: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus vulputate lacus a nibh finibus volutpat ut ut lectus. Quisque massa ante, bibendum id efficitur vel, placerat at augue. Etiam dignissim enim non ligula tincidunt, ac bibendum quam condimentum. Nulla maximus lacus eget eros varius, vitae auctor nibh placerat. Sed in ipsum massa. Suspendisse potenti. Proin pharetra bibendum consequat. Fusce feugiat dolor at scelerisque malesuada. Sed at mi non lacus facilisis dapibus. Integer in placerat libero, eu dictum purus. Ut vehicula, magna id egestas varius, nibh libero porttitor justo, ac congue lorem erat ornare dolor.",
+        color: "#0000FF",
+        size: "46",
+        brand: "Adidas",
+        price: 85.95,
+        stock: 100
+    };
+
+    diesel::insert_into(products::table)
+        .values(&new_product)
+        .get_result(&connection)
+        .expect("Error saving new post")
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Started server at: http://127.0.0.1:8000");
-
-    //let cors = Cors::default()
-        //.allowed_origin("http://localhost:8080")
-        //.allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
-        //.max_age(3600);
+    println!("Server started at: http://127.0.0.1:8000");
 
     HttpServer::new(|| {
         App::new()
