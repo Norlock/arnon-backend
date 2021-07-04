@@ -3,7 +3,7 @@ use diesel::PgConnection;
 use diesel::prelude::*;
 use super::schema::products;
 use super::schema::products::dsl::products as all_products;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 
 #[derive(Queryable, Serialize)]
@@ -19,7 +19,7 @@ pub struct Product {
     pub size: String
 }
 
-#[derive(Insertable)]
+#[derive(Insertable, Deserialize)]
 #[table_name="products"]
 pub struct NewProduct {
     pub title: String,
@@ -43,5 +43,12 @@ impl Product {
     pub fn get_product_list(conn: &PgConnection) -> Vec<Product> {
         all_products.load::<Product>(conn)
             .expect("Can't retrieve products")
+    }
+
+    pub fn insert_product(conn: &PgConnection, product: &NewProduct) -> Product {
+        diesel::insert_into(products::table)
+            .values(product)
+            .get_result(conn)
+            .expect("Error saving new post")
     }
 }

@@ -1,3 +1,4 @@
+use crate::models::NewProduct;
 use actix_web::{get, post, web, middleware::Logger, App, Result, HttpResponse, HttpServer, Responder};
 use actix_cors::Cors;
 
@@ -17,8 +18,6 @@ use diesel::pg::PgConnection;
 use dotenv::dotenv;
 use std::env;
 
-use schema::products::dsl::products as all_products;
-
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
 
@@ -30,8 +29,8 @@ pub fn establish_connection() -> PgConnection {
 }
 
 #[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
+async fn default() -> impl Responder {
+    HttpResponse::Ok().body("Arnon backend")
 }
 
 #[derive(Deserialize)]
@@ -43,22 +42,23 @@ struct Id {
 async fn get_product_list() -> Result<HttpResponse> {
     let conn = establish_connection();
 
-    let prods = all_products.load::<Product>(&conn)
-            .expect("Can't retrieve products");
-
-    Ok(HttpResponse::Ok().json(prods))
+    Ok(HttpResponse::Ok().json(Product::get_product_list(&conn)))
 }
 
 #[get("/product/{id}")]
 async fn get_product(fields: web::Path<Id>) -> Result<HttpResponse> {
     let conn = establish_connection();
     let result  = Product::find_by_id(fields.id, &conn);
+
     Ok(HttpResponse::Ok().json(result))
 }
 
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
+#[post("/product")]
+async fn post_product(new_product: web::Json<NewProduct>) -> Result<HttpResponse> {
+    let conn = establish_connection();
+    let product = Product::insert_product(&conn, &new_product);
+
+    Ok(HttpResponse::Ok().json(product))
 }
 
 #[actix_web::main]
@@ -67,9 +67,9 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
-            .service(hello)
+            .service(default)
             .service(get_product)
-            .service(echo)
+            .service(post_product)
             .service(get_product_list)
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
